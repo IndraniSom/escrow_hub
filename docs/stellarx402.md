@@ -1,3 +1,4 @@
+
 This tutorial shows how to build the simplest possible paid API with Node.js and Express using the x402 packages with settlement on the Stellar network.
 
 To follow this guide, you will need [Node.js](https://nodejs.org/) installed locally. Recommend using the latest LTS version.
@@ -308,11 +309,3 @@ The server is set up as an MVP for machine-to-machine payments. If you want to e
 * [Coinbase x402 GitHub](https://github.com/coinbase/x402) - Official x402 Protocol GitHub Repo
 * [x402-stellar (npm)](https://www.npmjs.com/package/x402-stellar) - npm package for x402 on Stellar
 * [Signing Soroban invocations](https://developers.stellar.org/docs/build/guides/transactions/signing-soroban-invocations.md) - Auth-entry signing and transaction signing on Stellar
-
-<!-- BEGIN:nextjs-agent-rules -->
-
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-
-<!-- END:nextjs-agent-rules -->
