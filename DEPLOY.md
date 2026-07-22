@@ -52,7 +52,7 @@
 6. [Soroban Smart Contract Deployment](#6-soroban-smart-contract-deployment)
 7. [Storage (S3 / Cloudinary)](#7-storage-s3--cloudinary)
 8. [CI/CD Pipeline](#8-cicd-pipeline)
-9. [Monitoring & Logging](#9-monitoring--logging)
+9. [Monitoring &amp; Logging](#9-monitoring--logging)
 10. [Post-Deployment Verification](#10-post-deployment-verification)
 11. [Troubleshooting](#11-troubleshooting)
 
@@ -61,6 +61,7 @@
 ## 1. Prerequisites
 
 ### Local Development
+
 - **Node.js** 20.x LTS or later
 - **npm** 10.x or later
 - **Rust** nightly toolchain (for Soroban contracts)
@@ -69,18 +70,20 @@
 - **Freighter Wallet** browser extension (for Stellar auth)
 
 ### Production Accounts
+
 - **Stellar** testnet/pubnet account with USDC trustline
 - **PostgreSQL** database (Render, AWS RDS, or Neon.tech)
 - **S3 bucket** or **Cloudinary** account (for file uploads)
 - **GitHub** repository (CI/CD via GitHub Actions)
 
 ### Recommended Hosting Platforms
-| Service | Backend | Frontend | Database | Notes |
-|---------|---------|----------|----------|-------|
-| **Render** | Web Service (Docker) | Static Site | Managed Postgres | Easiest setup |
-| **AWS** | ECS / App Runner | Amplify / S3+CloudFront | RDS | Most control |
-| **Vercel** | N/A | Native Next.js support | N/A | Frontend only |
-| **Railway** | Web Service | Static Site | Managed Postgres | Good middle ground |
+
+| Service           | Backend              | Frontend                | Database         | Notes              |
+| ----------------- | -------------------- | ----------------------- | ---------------- | ------------------ |
+| **Render**  | Web Service (Docker) | Static Site             | Managed Postgres | Easiest setup      |
+| **AWS**     | ECS / App Runner     | Amplify / S3+CloudFront | RDS              | Most control       |
+| **Vercel**  | N/A                  | Native Next.js support  | N/A              | Frontend only      |
+| **Railway** | Web Service          | Static Site             | Managed Postgres | Good middle ground |
 
 ---
 
@@ -94,17 +97,17 @@ Copy `backend/.env.example` to `backend/.env` and fill in all values:
 cp backend/.env.example backend/.env
 ```
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string | `postgresql://user:pass@host:5432/db?schema=public` |
-| `JWT_SECRET` | Yes | HMAC secret for JWT tokens (min 32 chars) | `openssl rand -hex 32` |
-| `STELLAR_NETWORK` | Yes | Stellar network target | `TESTNET` or `PUBLIC` |
-| `STELLAR_RPC_URL` | Yes | Soroban RPC endpoint | `https://soroban-testnet.stellar.org` |
-| `CORSAIR_API_KEY` | No | Corsair integration API key | (get from Corsair dashboard) |
-| `CORSAIR_SIGNING_SECRET` | No | Corsair webhook signing secret | (get from Corsair dashboard) |
-| `CORSAIR_KEK` | No | Corsair key encryption key | (get from Corsair dashboard) |
-| `APP_URL` | Yes | CORS origin for frontend | `https://app.yourdomain.com` |
-| `PORT` | No | Backend listen port (default 4000) | `4000` |
+| Variable                   | Required | Description                               | Example                                               |
+| -------------------------- | -------- | ----------------------------------------- | ----------------------------------------------------- |
+| `DATABASE_URL`           | Yes      | PostgreSQL connection string              | `postgresql://user:pass@host:5432/db?schema=public` |
+| `JWT_SECRET`             | Yes      | HMAC secret for JWT tokens (min 32 chars) | `openssl rand -hex 32`                              |
+| `STELLAR_NETWORK`        | Yes      | Stellar network target                    | `TESTNET` or `PUBLIC`                             |
+| `STELLAR_RPC_URL`        | Yes      | Soroban RPC endpoint                      | `https://soroban-testnet.stellar.org`               |
+| `CORSAIR_API_KEY`        | No       | Corsair integration API key               | (get from Corsair dashboard)                          |
+| `CORSAIR_SIGNING_SECRET` | No       | Corsair webhook signing secret            | (get from Corsair dashboard)                          |
+| `CORSAIR_KEK`            | No       | Corsair key encryption key                | (get from Corsair dashboard)                          |
+| `APP_URL`                | Yes      | CORS origin for frontend                  | `https://app.yourdomain.com`                        |
+| `PORT`                   | No       | Backend listen port (default 4000)        | `4000`                                              |
 
 ### 2.2 Frontend Environment Variables
 
@@ -114,9 +117,9 @@ Create `frontend/.env.local`:
 echo "NEXT_PUBLIC_API_URL=https://api.yourdomain.com" > frontend/.env.local
 ```
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL | `https://api.yourdomain.com` |
+| Variable                | Required | Description          | Example                        |
+| ----------------------- | -------- | -------------------- | ------------------------------ |
+| `NEXT_PUBLIC_API_URL` | Yes      | Backend API base URL | `https://api.yourdomain.com` |
 
 ### 2.3 Stellar Account Setup
 
@@ -142,6 +145,7 @@ soroban lab trustline \
 ### 3.1 Provision PostgreSQL
 
 **Option A — Render Managed Postgres:**
+
 ```bash
 # Created via Render Dashboard:
 # 1. New → PostgreSQL
@@ -150,6 +154,7 @@ soroban lab trustline \
 ```
 
 **Option B — AWS RDS:**
+
 ```bash
 # Via AWS CLI
 aws rds create-db-instance \
@@ -162,6 +167,7 @@ aws rds create-db-instance \
 ```
 
 **Option C — Neon.tech (Serverless PostgreSQL):**
+
 ```bash
 # Sign up at neon.tech, create a project
 # Copy the connection string (uses pooled connection for serverless)
@@ -331,6 +337,7 @@ volumes:
 ### 4.4 Deploy to Render
 
 **Backend Web Service:**
+
 ```
 1. Dashboard → New → Web Service
 2. Connect GitHub repository
@@ -344,6 +351,7 @@ volumes:
 ```
 
 **Frontend Static Site (Alternative to Docker):**
+
 ```
 1. Dashboard → New → Static Site
 2. Connect GitHub repository
@@ -358,6 +366,7 @@ For Next.js with SSR, use **Render Web Service** instead of Static Site, using t
 ### 4.5 Deploy to AWS
 
 **Backend (ECS Fargate):**
+
 ```bash
 # Build and push to ECR
 aws ecr create-repository --repository-name freelance-escrow-hub-backend
@@ -372,6 +381,7 @@ aws ecs create-service --cluster freelance-escrow-hub --service-name backend ...
 ```
 
 **Frontend (Amplify):**
+
 ```bash
 # Connect GitHub repo to AWS Amplify
 # Build settings: npm ci && npm run build
@@ -438,6 +448,7 @@ ls -la target/wasm32-unknown-unknown/release/*.wasm
 ```
 
 Expected outputs:
+
 - `escrow.wasm`
 - `milestone.wasm`
 - `dispute.wasm`
@@ -515,6 +526,7 @@ soroban contract invoke \
 ### 6.4 Deploy to Mainnet
 
 Same steps as testnet, but:
+
 - Use `--network pubnet`
 - Ensure account has XLM for deployment fees (~5 XLM per contract)
 - Use production USDC issuer: `GA5ZSEJYB37JRC5AVCIA5MOP4RHTV335V2CEX6MYTUTDMGEYPNHTD`
@@ -595,6 +607,7 @@ Update user avatar and submission URI upload endpoints to use Cloudinary's uploa
 ### 7.3 CORS Configuration
 
 **S3 CORS:**
+
 ```json
 {
   "CORSRules": [{
@@ -720,14 +733,14 @@ jobs:
 
 ### 8.2 GitHub Secrets
 
-| Secret | Description |
-|--------|-------------|
-| `RENDER_API_KEY` | Render API key for trigger deploys |
-| `RENDER_BACKEND_ID` | Render backend service ID |
-| `VERCEL_TOKEN` | Vercel API token |
-| `VERCEL_ORG_ID` | Vercel org/team ID |
-| `VERCEL_PROJECT_ID` | Vercel project ID |
-| `STELLAR_ADMIN_SECRET` | Stellar admin secret key |
+| Secret                   | Description                        |
+| ------------------------ | ---------------------------------- |
+| `RENDER_API_KEY`       | Render API key for trigger deploys |
+| `RENDER_BACKEND_ID`    | Render backend service ID          |
+| `VERCEL_TOKEN`         | Vercel API token                   |
+| `VERCEL_ORG_ID`        | Vercel org/team ID                 |
+| `VERCEL_PROJECT_ID`    | Vercel project ID                  |
+| `STELLAR_ADMIN_SECRET` | Stellar admin secret key           |
 
 ---
 
@@ -742,6 +755,7 @@ npm install @nestjs/winston winston
 ```
 
 Update `main.ts` to use Winston with transports for:
+
 - Console (JSON format)
 - File rotation
 - Cloud watch / Logtail / Axiom
@@ -755,6 +769,7 @@ Configure Render / AWS health check to hit `/` every 30 seconds.
 ### 9.3 Alerts
 
 Set up alerts for:
+
 - 5xx error rate > 1%
 - P99 latency > 2s
 - Database connection pool exhaustion (CPU > 80%)
@@ -836,6 +851,7 @@ soroban contract invoke \
 ## 11. Troubleshooting
 
 ### Database Connection Issues
+
 ```
 Error: Can't reach database server
 → Check DATABASE_URL format and network rules
@@ -845,6 +861,7 @@ Error: Can't reach database server
 ```
 
 ### CORS Errors
+
 ```
 Access to fetch at 'https://api.yourdomain.com' has been blocked by CORS
 → Verify APP_URL in backend env matches exactly (no trailing slash)
@@ -853,6 +870,7 @@ Access to fetch at 'https://api.yourdomain.com' has been blocked by CORS
 ```
 
 ### Soroban Contract Issues
+
 ```
 Error: (InvalidInput) Contract invocation failed
 → Verify contract IDs in backend config
@@ -862,6 +880,7 @@ Error: (InvalidInput) Contract invocation failed
 ```
 
 ### x402 / Payment Issues
+
 ```
 Error: Payment authorization failed
 → Verify Stellar account has USDC trustline
@@ -871,6 +890,7 @@ Error: Payment authorization failed
 ```
 
 ### Prisma Migration Issues
+
 ```
 Error: P1001: Can't reach database server
 → RDS: check if database is publicly accessible
@@ -879,14 +899,15 @@ Error: P1001: Can't reach database server
 ```
 
 ### Common HTTP Status Codes
-| Code | Meaning | Resolution |
-|------|---------|------------|
-| 401 | Unauthorized | Re-authenticate via Freighter |
-| 403 | Forbidden | Check role/ownership |
-| 404 | Not found | Verify resource ID |
-| 409 | Conflict | Resource already exists |
-| 422 | Validation error | Check request body |
-| 500 | Internal error | Check server logs |
+
+| Code | Meaning          | Resolution                    |
+| ---- | ---------------- | ----------------------------- |
+| 401  | Unauthorized     | Re-authenticate via Freighter |
+| 403  | Forbidden        | Check role/ownership          |
+| 404  | Not found        | Verify resource ID            |
+| 409  | Conflict         | Resource already exists       |
+| 422  | Validation error | Check request body            |
+| 500  | Internal error   | Check server logs             |
 
 ---
 
