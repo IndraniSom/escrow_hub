@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "contracts/escrow",
+    "contracts/milestone",
+    "contracts/dispute",
+    "contracts/reputation",
+]
+
+[workspace.dependencies]
+soroban-sdk = "22.0.0"
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+lto = true
+debug = 0
+codegen-units = 1
