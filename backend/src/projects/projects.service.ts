@@ -119,6 +119,10 @@ export class ProjectsService {
     if (dto.tokenSymbol !== undefined) updatableFields.tokenSymbol = dto.tokenSymbol;
     if (dto.deadline !== undefined) updatableFields.deadline = new Date(dto.deadline);
     if (dto.githubRepo !== undefined) updatableFields.githubRepo = dto.githubRepo;
+    if (dto.status !== undefined) updatableFields.status = dto.status;
+    if (dto.stellarEscrowId !== undefined) updatableFields.stellarEscrowId = dto.stellarEscrowId;
+    if (dto.escrowContractId !== undefined) updatableFields.escrowContractId = dto.escrowContractId;
+    if (dto.freelancerId !== undefined) updatableFields.freelancerId = dto.freelancerId;
 
     return this.prisma.project.update({
       where: { id },

@@ -1,7 +1,6 @@
 import {
   Injectable,
   UnauthorizedException,
-  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -63,6 +62,8 @@ export class AuthService {
           stellarAddress: publicKey,
           username: null,
           displayName: null,
+          role: 'FREELANCER', // Default role
+          isOnboarded: true,
         },
       });
       this.logger.log(`New user created with Stellar address: ${publicKey}`);

@@ -196,13 +196,12 @@ export interface PaginatedResponse<T> {
 }
 
 export interface AuthChallengeResponse {
+  challengeId: string;
   challenge: string;
-  transactionXdr?: string;
-  expiresAt: string;
 }
 
 export interface AuthVerifyResponse {
-  token: string;
+  accessToken: string;
   user: User;
 }
 

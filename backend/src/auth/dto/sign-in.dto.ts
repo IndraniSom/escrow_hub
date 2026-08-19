@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SignInDto {
   @ApiProperty({ description: 'Stellar public key' })
@@ -16,4 +16,9 @@ export class SignInDto {
   @IsString()
   @IsNotEmpty()
   challenge!: string;
+
+  @ApiPropertyOptional({ description: 'Role (deprecated, ignored)' })
+  @IsOptional()
+  @IsString()
+  role?: string;
 }

@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Symbol, Vec, vec, symbol_short};
 
 #[contracttype]
@@ -132,8 +132,8 @@ impl ReputationContract {
         id
     }
 
-    pub fn update_project_completion(env: Env, address: Address, completed: bool) {
-        env.invoker().require_auth();
+    pub fn update_project_completion(env: Env, caller: Address, address: Address, completed: bool) {
+        caller.require_auth();
         let mut reputation: Reputation = env.storage().persistent()
             .get(&DataKey::Reputation(address.clone()))
             .expect("reputation not initialized");
@@ -155,8 +155,8 @@ impl ReputationContract {
         );
     }
 
-    pub fn increment_dispute_count(env: Env, address: Address) {
-        env.invoker().require_auth();
+    pub fn increment_dispute_count(env: Env, caller: Address, address: Address) {
+        caller.require_auth();
         let mut reputation: Reputation = env.storage().persistent()
             .get(&DataKey::Reputation(address.clone()))
             .expect("reputation not initialized");
@@ -187,5 +187,70 @@ impl ReputationContract {
         env.storage().persistent()
             .get(&DataKey::Reviews(address))
             .unwrap_or(vec![&env])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::Env;
+
+    fn setup(env: &Env) -> (ReputationContractClient, Address) {
+        let admin = Address::generate(env);
+        let contract_id = env.register(ReputationContract, ());
+        let client = ReputationContractClient::new(env, &contract_id);
+        client.initialize(&admin);
+        (client, Address::generate(env))
+    }
+
+    #[test]
+    fn test_reputation_starts_empty() {
+        let env = Env::default();
+        let (reputation, user) = setup(&env);
+        let r = reputation.get_reputation(&user);
+        assert_eq!(r.total_projects, 0);
+        assert_eq!(r.average_rating, 0);
+        assert_eq!(r.dispute_count, 0);
+    }
+
+    #[test]
+    fn test_submit_review_computes_average() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (reputation, to) = setup(&env);
+        let from_a = Address::generate(&env);
+        let from_b = Address::generate(&env);
+
+        reputation.initialize_reputation(&to);
+        let id = reputation.submit_review(&from_a, &to, &1, &4, &symbol_short!("solid"));
+        assert_eq!(id, 1);
+        reputation.submit_review(&from_b, &to, &1, &2, &symbol_short!("meh"));
+
+        assert_eq!(reputation.get_reputation(&to).total_projects, 2);
+        assert_eq!(reputation.get_reputation(&to).average_rating, 3);
+        assert_eq!(reputation.get_reviews(&to).len(), 2);
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reputation.submit_review(&from_a, &to, &1, &6, &symbol_short!("bad"))));
+        assert!(result.is_err(), "rating must be 1..=5");
+    }
+
+    #[test]
+    fn test_completion_and_dispute_metrics() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (reputation, user) = setup(&env);
+        let caller = Address::generate(&env);
+
+        reputation.initialize_reputation(&user);
+        reputation.submit_review(&caller, &user, &1, &5, &symbol_short!("done"));
+        reputation.update_project_completion(&caller, &user, &true);
+        reputation.increment_dispute_count(&caller, &user);
+
+        let r = reputation.get_reputation(&user);
+        assert_eq!(r.total_projects, 1);
+        assert_eq!(r.completed_projects, 1);
+        assert_eq!(r.on_time_completion_rate, 100);
+        assert_eq!(r.dispute_count, 1);
     }
 }

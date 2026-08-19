@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 
@@ -14,7 +15,7 @@ export class NotificationsService {
         type: dto.type,
         title: dto.title,
         body: dto.body,
-        metadata: dto.metadata || undefined,
+        metadata: (dto.metadata as unknown as Prisma.InputJsonValue) ?? undefined,
       },
     });
   }
@@ -59,7 +60,7 @@ export class NotificationsService {
     }
 
     if (userId && notification.userId !== userId) {
-      throw new (require('@nestjs/common').ForbiddenException)('You can only mark your own notifications as read');
+      throw new ForbiddenException('You can only mark your own notifications as read');
     }
 
     return this.prisma.notification.update({
@@ -87,7 +88,7 @@ export class NotificationsService {
     }
 
     if (userId && notification.userId !== userId) {
-      throw new (require('@nestjs/common').ForbiddenException)('You can only delete your own notifications');
+      throw new ForbiddenException('You can only delete your own notifications');
     }
 
     await this.prisma.notification.delete({ where: { id } });

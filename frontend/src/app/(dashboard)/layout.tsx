@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, 
@@ -11,9 +12,11 @@ import {
   Workflow, 
   Settings, 
   LogOut,
-  ChevronRight
+  ChevronRight,
+  SearchCode
 } from "lucide-react";
 import { getApiClient } from "@/lib/api";
+import { useWalletContext } from "@/context/WalletProvider";
 
 export default function DashboardLayout({
   children,
@@ -21,9 +24,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const api = getApiClient();
+  const router = useRouter();
+  const wallet = useWalletContext();
   const [displayAddress, setDisplayAddress] = useState("GDEMO...XLM123");
   const [unreadCount, setUnreadCount] = useState(0);
-  const [init, setInit] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -33,13 +38,24 @@ export default function DashboardLayout({
         setDisplayAddress(addr.length > 12 ? `${addr.slice(0, 5)}...${addr.slice(-4)}` : addr);
         const notifs = await api.notifications.list({ limit: 1 });
         setUnreadCount(notifs.meta.unreadCount || 0);
+        setIsLoading(false);
       } catch {
-        // Not logged in, leave defaults
+        // Not logged in, redirect to sign-in
+        router.push("/sign-in");
       }
-      setInit(true);
     }
     load();
-  }, [api]);
+  }, [api, router]);
+
+  useEffect(() => {
+    if (wallet.status === "disconnected") {
+      router.push("/sign-in");
+    }
+  }, [wallet.status, router]);
+
+  if (isLoading) {
+    return <div className="p-8 text-white uppercase tracking-widest text-sm">Loading dashboard...</div>;
+  }
 
   return (
     <div className="flex flex-col lg:flex-row flex-1 w-full border-struct-t">
@@ -65,8 +81,12 @@ export default function DashboardLayout({
                 <span>Dashboard</span>
               </Link>
               <Link href="/dashboard/projects" className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#1a1a1c] hover:text-white transition-all duration-200 ease-in-out font-bold text-[#a1a1aa] border-l-2 border-transparent hover:border-orange-600">
+                <SearchCode className="w-4 h-4" />
+                <span>Find Work</span>
+              </Link>
+              <Link href="/dashboard/projects" className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#1a1a1c] hover:text-white transition-all duration-200 ease-in-out font-bold text-[#a1a1aa] border-l-2 border-transparent hover:border-orange-600">
                 <FolderGit2 className="w-4 h-4" />
-                <span>My Projects</span>
+                <span>Manage Projects</span>
               </Link>
               <Link href="/dashboard/projects/create" className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#1a1a1c] hover:text-white transition-all duration-200 ease-in-out font-bold text-[#a1a1aa] border-l-2 border-transparent hover:border-orange-600">
                 <PlusSquare className="w-4 h-4" />
@@ -105,10 +125,14 @@ export default function DashboardLayout({
                 <Settings className="w-4 h-4" />
                 <span>Settings</span>
               </a>
-              <Link href="/sign-in" className="flex items-center gap-3 px-3 py-2.5 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 ease-in-out font-bold text-red-500 border-l-2 border-transparent hover:border-red-500">
+              <button onClick={() => {
+                api.setToken(null);
+                wallet.disconnect();
+                router.push("/sign-in");
+              }} className="flex w-full items-center gap-3 px-3 py-2.5 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 ease-in-out font-bold text-red-500 border-l-2 border-transparent hover:border-red-500 text-left">
                 <LogOut className="w-4 h-4" />
                 <span>Disconnect</span>
-              </Link>
+              </button>
             </nav>
           </div>
         </div>

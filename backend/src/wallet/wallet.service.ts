@@ -4,9 +4,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { Server } from '@stellar/stellar-sdk';
+import { Horizon } from '@stellar/stellar-sdk';
 
 @Injectable()
 export class WalletService {
@@ -23,43 +24,33 @@ export class WalletService {
   }
 
   async getBalance(userId: string) {
-    const [depositsResult, withdrawalsResult] = await Promise.all([
-      this.prisma.transaction.aggregate({
-        where: { userId, type: { in: ['deposit', 'payment'] } },
-        _sum: { amount: true },
-      }),
-      this.prisma.transaction.aggregate({
-        where: { userId, type: { in: ['withdrawal', 'release'] } },
-        _sum: { amount: true },
-      }),
-    ]);
-
-    const deposits = BigInt(depositsResult._sum.amount || '0');
-    const withdrawals = BigInt(withdrawalsResult._sum.amount || '0');
-    const balance = (deposits - withdrawals).toString();
-
-    const tokenGroup = await this.prisma.transaction.groupBy({
-      by: ['tokenSymbol', 'type'],
+    const transactions = await this.prisma.transaction.findMany({
       where: { userId },
-      _sum: { amount: true },
+      orderBy: { createdAt: 'desc' },
     });
 
-    const tokenBalances: Record<string, string> = {};
-    for (const group of tokenGroup) {
-      const symbol = group.tokenSymbol || 'USDC';
-      const amount = BigInt(group._sum.amount || '0');
-      if (!tokenBalances[symbol]) tokenBalances[symbol] = '0';
-      if (group.type === 'deposit' || group.type === 'payment') {
-        tokenBalances[symbol] = (BigInt(tokenBalances[symbol]) + amount).toString();
+    const tokenBalances: Record<string, bigint> = {};
+    for (const tx of transactions) {
+      const symbol = tx.tokenSymbol || 'USDC';
+      if (!tokenBalances[symbol]) tokenBalances[symbol] = 0n;
+      const amount = BigInt(tx.amount || '0');
+      if (tx.type === 'deposit' || tx.type === 'payment') {
+        tokenBalances[symbol] += amount;
       } else {
-        tokenBalances[symbol] = (BigInt(tokenBalances[symbol]) - amount).toString();
+        tokenBalances[symbol] -= amount;
       }
+    }
+
+    const total = Object.values(tokenBalances).reduce((acc, b) => acc + b, 0n);
+    const formatted: Record<string, string> = {};
+    for (const [symbol, balance] of Object.entries(tokenBalances)) {
+      formatted[symbol] = balance.toString();
     }
 
     return {
       userId,
-      balance,
-      tokenBalances,
+      balance: total.toString(),
+      tokenBalances: formatted,
       currency: 'USDC',
     };
   }
@@ -98,7 +89,7 @@ export class WalletService {
         tokenSymbol: dto.tokenSymbol || 'USDC',
         stellarTxHash: dto.stellarTxHash,
         description: dto.description,
-        metadata: dto.metadata || undefined,
+        metadata: (dto.metadata as unknown as Prisma.InputJsonValue) ?? undefined,
         status: 'completed',
       },
     });
@@ -106,7 +97,7 @@ export class WalletService {
 
   async getStellarBalance(stellarAddress: string) {
     try {
-      const server = new Server(
+      const server = new Horizon.Server(
         this.configService.get<string>('STELLAR_NETWORK') === 'PUBLIC'
           ? 'https://horizon.stellar.org'
           : 'https://horizon-testnet.stellar.org',

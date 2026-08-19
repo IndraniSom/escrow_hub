@@ -1,5 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 
@@ -23,7 +24,7 @@ export class WebhooksService {
       data: {
         source,
         event,
-        payload: payload as Record<string, unknown>,
+        payload: payload as unknown as Prisma.InputJsonValue,
         processed: false,
       },
     });
@@ -83,7 +84,7 @@ export class WebhooksService {
               type: 'github_push',
               title: `New push to ${repo}`,
               body: `Repository ${repo} has received a new push.`,
-              metadata: { projectId: project.id, event, payload },
+              metadata: { projectId: project.id, event, payload } as unknown as Prisma.InputJsonValue,
             },
           });
         }

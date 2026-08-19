@@ -4,14 +4,20 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
+import { JwtService } from '@nestjs/jwt';
 import { verifyWalletSignature } from '../utils/stellar.utils';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class StellarAuthGuard implements CanActivate {
-  canActivate(
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  async canActivate(
     context: ExecutionContext,
-  ): boolean | Promise<boolean> | Observable<boolean> {
+  ): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
 
@@ -20,13 +26,53 @@ export class StellarAuthGuard implements CanActivate {
     }
 
     const parts = authHeader.split(' ');
-    if (parts.length !== 2 || parts[0] !== 'Stellar') {
-      throw new UnauthorizedException(
-        'Invalid authorization format. Use: Stellar <signature>',
-      );
+    if (parts.length !== 2) {
+      throw new UnauthorizedException('Invalid authorization format');
     }
 
-    const signature = parts[1];
+    if (parts[0] === 'Bearer') {
+      return this.authenticateWithJwt(parts[1], request);
+    }
+
+    if (parts[0] === 'Stellar') {
+      return this.authenticateWithSignature(parts[1], request);
+    }
+
+    throw new UnauthorizedException(
+      'Invalid authorization scheme. Use: Bearer <jwt> or Stellar <signature>',
+    );
+  }
+
+  private async authenticateWithJwt(
+    token: string,
+    request: any,
+  ): Promise<boolean> {
+    let payload: { sub?: string; stellarAddress?: string; role?: string };
+    try {
+      payload = this.jwtService.verify(token);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired JWT');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { stellarAddress: payload.stellarAddress },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    request.user = {
+      stellarAddress: user.stellarAddress,
+      userId: user.id,
+      role: user.role,
+    };
+    return true;
+  }
+
+  private async authenticateWithSignature(
+    signature: string,
+    request: any,
+  ): Promise<boolean> {
     const publicKey = request.headers['x-stellar-public-key'] as string;
     const challenge = request.headers['x-stellar-challenge'] as string;
 
@@ -41,7 +87,15 @@ export class StellarAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid wallet signature');
     }
 
-    request.user = { stellarAddress: publicKey };
+    const user = await this.prisma.user.findUnique({
+      where: { stellarAddress: publicKey },
+    });
+
+    request.user = {
+      stellarAddress: publicKey,
+      userId: user?.id,
+      role: user?.role,
+    };
     return true;
   }
 }

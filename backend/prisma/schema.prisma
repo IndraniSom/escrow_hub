@@ -25,6 +25,7 @@ model User {
 
   projectsAsClient     Project[]     @relation("ClientProjects")
   projectsAsFreelancer Project[]     @relation("FreelancerProjects")
+  disputesRaised       Dispute[]
   integrations         Integration[]
   notifications        Notification[]
   reviewsGiven         Review[]      @relation("ReviewFrom")
@@ -60,6 +61,8 @@ model Project {
   freelancer  User?      @relation("FreelancerProjects", fields: [freelancerId], references: [id], onDelete: SetNull)
   milestones  Milestone[]
   disputes    Dispute[]
+  reviews     Review[]
+  escrow      Escrow?
 
   @@index([clientId])
   @@index([freelancerId])

@@ -22,10 +22,10 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <Link href="/projects/create" className="btn-primary text-center">
+            <Link href="/dashboard/projects/create" className="btn-primary text-center">
               Post a Project
             </Link>
-            <Link href="/projects" className="btn-outline text-center">
+            <Link href="/dashboard/projects" className="btn-outline text-center">
               Find Freelance Work
             </Link>
           </div>
@@ -70,7 +70,7 @@ export default function Home() {
           </div>
           <div className="mt-auto">
             <p className="font-display text-4xl text-[#27272a] font-black uppercase tracking-tight">
-              // Work Protected By <br /> Smart Contracts
+              {"// "}Work Protected By <br /> Smart Contracts
             </p>
           </div>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import createGlobe from "cobe";
+import createGlobe, { COBEOptions } from "cobe";
 
 export function GlobePulse() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -14,7 +14,7 @@ export function GlobePulse() {
     window.addEventListener("resize", onResize);
     onResize();
 
-    const options: any = {
+    const options: COBEOptions = {
       devicePixelRatio: 2,
       width: width * 2,
       height: width * 2,
@@ -35,10 +35,10 @@ export function GlobePulse() {
         { location: [-33.8688, 151.2093], size: 0.05 }, // Sydney
         { location: [1.3521, 103.8198], size: 0.05 }, // Singapore
       ],
-      onRender: (state: any) => {
-        state.phi = phi;
-        phi += 0.003;
-      },
+    };
+    (options as COBEOptions & { onRender: (state: { phi: number }) => void }).onRender = (state) => {
+      state.phi = phi;
+      phi += 0.003;
     };
     
     const globe = createGlobe(canvasRef.current!, options);

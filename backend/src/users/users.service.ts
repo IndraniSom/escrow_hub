@@ -96,6 +96,7 @@ export class UsersService {
     if (dto.avatarUrl !== undefined) updatableFields.avatarUrl = dto.avatarUrl;
     if (dto.bio !== undefined) updatableFields.bio = dto.bio;
     if (dto.email !== undefined) updatableFields.email = dto.email;
+    if (dto.role !== undefined) updatableFields.role = dto.role;
     if (dto.isOnboarded !== undefined) updatableFields.isOnboarded = dto.isOnboarded;
 
     return this.prisma.user.update({

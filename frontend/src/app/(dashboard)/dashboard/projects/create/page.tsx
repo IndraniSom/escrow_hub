@@ -32,6 +32,8 @@ export default function CreateProjectPage() {
 
   // Step 3 - funding
   const [fundingState, setFundingState] = useState<"idle" | "authorizing" | "success">("idle");
+  const [fundError, setFundError] = useState<string | null>(null);
+  const [freelancerAddress, setFreelancerAddress] = useState("");
 
   function addMilestone() {
     setMilestones((prev) => [
@@ -54,6 +56,7 @@ export default function CreateProjectPage() {
   async function handleFinalSubmit() {
     setIsSubmitting(true);
     setFundingState("authorizing");
+    setFundError(null);
     try {
       const project =       await api.projects.create({
         title,
@@ -70,10 +73,25 @@ export default function CreateProjectPage() {
           });
         }
       }
+      if (freelancerAddress) {
+        const freelancer = await api.users.byAddress(freelancerAddress);
+        await api.projects.update(project.id, { freelancerId: freelancer.id });
+      }
+      const contractId = "C" + project.id.replace(/-/g, "").padEnd(55, "0");
+      const stellarEscrowId = project.id.replace(/-/g, "").padEnd(64, "0");
+      await api.escrow.create({
+        projectId: project.id,
+        contractId,
+        stellarEscrowId,
+        tokenAddress: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2Q2A5VCJ3G2TCHC4KN",
+        amount: totalBudget,
+      });
+      await api.escrow.fund(project.id);
       setFundingState("success");
       setTimeout(() => router.push(`/dashboard/projects/${project.id}`), 1500);
-    } catch {
+    } catch (e) {
       setFundingState("idle");
+      setFundError(e instanceof Error ? e.message : "Failed to fund escrow. Is Freighter unlocked?");
     }
     setIsSubmitting(false);
   }
@@ -296,7 +314,26 @@ export default function CreateProjectPage() {
               <span className="text-[#52525b] text-xs">Network</span>
               <span className="text-[#71717a] text-xs">Stellar Testnet</span>
             </div>
+            <div className="space-y-2 pt-4 border-t border-[#27272a]">
+              <label className="block text-xs font-bold text-[#a1a1aa] uppercase tracking-widest">
+                Freelancer Stellar Address
+              </label>
+              <input
+                type="text"
+                value={freelancerAddress}
+                onChange={(e) => setFreelancerAddress(e.target.value)}
+                placeholder="G..."
+                className="w-full bg-[#111113] border border-[#27272a] p-3 text-white font-mono text-sm focus:outline-none focus:border-orange-600 focus:shadow-[0_0_0_1px_rgba(234,88,12,0.5)] transition-all duration-200"
+              />
+              <p className="text-[10px] text-[#52525b]">The freelancer must be a registered user (e.g. GFREELANCER1234567890123456789012345678901234567890 from seed data).</p>
+            </div>
           </div>
+
+          {fundError && (
+            <div className="border border-red-500/30 bg-red-500/5 p-4 text-xs text-red-400 font-mono">
+              {fundError}
+            </div>
+          )}
 
           {fundingState === "idle" && (
             <div className="space-y-6">
@@ -308,8 +345,8 @@ export default function CreateProjectPage() {
                 <button onClick={() => setStep(2)} className="flex-1 btn-outline py-4 flex items-center justify-center gap-2 hover:bg-[#1a1a1c] transition-colors duration-200">
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
-                <button onClick={handleFinalSubmit} className="flex-[2] btn-primary py-4 flex items-center justify-center gap-2 hover:bg-orange-500 transition-colors duration-200 shadow-[0_0_20px_rgba(234,88,12,0.3)]">
-                  <Wallet className="w-4 h-4" /> Sign & Fund Escrow
+                <button onClick={handleFinalSubmit} disabled={isSubmitting} className="flex-[2] btn-primary py-4 flex items-center justify-center gap-2 hover:bg-orange-500 transition-colors duration-200 shadow-[0_0_20px_rgba(234,88,12,0.3)] disabled:opacity-50 disabled:cursor-not-allowed">
+                  <Wallet className="w-4 h-4" /> {isSubmitting ? "Authorizing..." : "Sign & Fund Escrow"}
                 </button>
               </div>
             </div>

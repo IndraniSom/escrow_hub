@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 use soroban_sdk::{contract, contractimpl, contracttype, token, vec, Address, Env, IntoVal, Symbol, Val, Vec, symbol_short};
 
 #[contracttype]
@@ -181,15 +181,15 @@ impl EscrowContract {
         );
     }
 
-    pub fn dispute_escrow(env: Env, escrow_id: u64) {
+    pub fn dispute_escrow(env: Env, caller: Address, escrow_id: u64) {
         let mut escrow: Escrow = env.storage().persistent()
             .get(&DataKey::Escrow(escrow_id))
             .expect("escrow not found");
 
-        if escrow.client != env.invoker() && escrow.freelancer != env.invoker() {
+        if escrow.client != caller && escrow.freelancer != caller {
             panic!("only client or freelancer can dispute");
         }
-        env.invoker().require_auth();
+        caller.require_auth();
 
         escrow.state = EscrowState::Disputed;
         env.storage().persistent().set(&DataKey::Escrow(escrow_id), &escrow);
@@ -259,5 +259,125 @@ impl EscrowContract {
 
     pub fn get_escrow_count(env: Env) -> u64 {
         env.storage().persistent().get(&DataKey::EscrowCount).unwrap_or(0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::{token, Env};
+
+    fn setup(env: &Env) -> (EscrowContractClient, Address, Address, Address, token::Client, Address, Address) {
+        let admin = Address::generate(env);
+        let client = Address::generate(env);
+        let freelancer = Address::generate(env);
+
+        let token_admin = Address::generate(env);
+        let token = env.register_stellar_asset_contract_v2(token_admin);
+        let sac = token::StellarAssetClient::new(env, &token.address());
+        sac.mint(&client, &1_000_000_000);
+
+        let milestone_contract = env.register(milestone::MilestoneContract, ());
+        let contract_id = env.register(EscrowContract, ());
+        let escrow = EscrowContractClient::new(env, &contract_id);
+        escrow.initialize(&admin);
+
+        (escrow, client, freelancer, token.address(), token::Client::new(env, &token.address()), milestone_contract, contract_id)
+    }
+
+    #[test]
+    fn test_create_and_fund_escrow() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (escrow, client, freelancer, token, token_client, milestone_contract, contract_id) = setup(&env);
+
+        let id = escrow.create_escrow(&client, &freelancer, &token, &1_000_000, &2, &0, &milestone_contract);
+        assert_eq!(id, 1);
+
+        let e = escrow.get_escrow(&id);
+        assert_eq!(e.state, EscrowState::Funded);
+        assert_eq!(e.milestone_count, 2);
+
+        escrow.fund_escrow(&id);
+        assert_eq!(escrow.get_escrow(&id).state, EscrowState::Active);
+        assert_eq!(token_client.balance(&contract_id), 1_000_000);
+        assert_eq!(token_client.balance(&client), 1_000_000_000 - 1_000_000);
+    }
+
+    #[test]
+    fn test_release_requires_approved_milestone() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (escrow, client, freelancer, token, token_client, milestone_contract, contract_id) = setup(&env);
+        let milestones = milestone::MilestoneContractClient::new(&env, &milestone_contract);
+
+        milestones.create_milestone(&1, &symbol_short!("Design"), &symbol_short!("UI"), &1_000_000, &1_000_000);
+        let id = escrow.create_escrow(&client, &freelancer, &token, &1_000_000, &1, &0, &milestone_contract);
+        escrow.fund_escrow(&id);
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| escrow.release_funds(&id, &1)));
+        assert!(result.is_err(), "release must fail before milestone is approved");
+
+        milestones.start_milestone(&freelancer, &1);
+        milestones.submit_milestone(&freelancer, &1, &symbol_short!("pr_42"));
+        milestones.approve_milestone(&client, &1);
+        assert_eq!(milestones.get_milestone_state(&1), 3);
+
+        escrow.release_funds(&id, &1);
+        assert_eq!(escrow.get_escrow(&id).state, EscrowState::Completed);
+        assert_eq!(token_client.balance(&freelancer), 1_000_000);
+        assert_eq!(token_client.balance(&contract_id), 0);
+    }
+
+    #[test]
+    fn test_refund_only_when_funded() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (escrow, client, freelancer, token, token_client, milestone_contract, contract_id) = setup(&env);
+
+        let id = escrow.create_escrow(&client, &freelancer, &token, &500_000, &1, &0, &milestone_contract);
+        escrow.fund_escrow(&id);
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| escrow.refund_escrow(&id)));
+        assert!(result.is_err(), "refund must fail after funding");
+
+        let id2 = escrow.create_escrow(&client, &freelancer, &token, &500_000, &1, &0, &milestone_contract);
+        escrow.refund_escrow(&id2);
+        assert_eq!(escrow.get_escrow(&id2).state, EscrowState::Refunded);
+        assert_eq!(token_client.balance(&client), 1_000_000_000);
+        assert_eq!(token_client.balance(&contract_id), 0);
+    }
+
+    #[test]
+    fn test_dispute_only_for_participants() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (escrow, client, freelancer, token, _, milestone_contract, _) = setup(&env);
+        let outsider = Address::generate(&env);
+
+        let id = escrow.create_escrow(&client, &freelancer, &token, &1_000_000, &1, &0, &milestone_contract);
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| escrow.dispute_escrow(&outsider, &id)));
+        assert!(result.is_err(), "outsider must not be able to dispute");
+
+        escrow.dispute_escrow(&freelancer, &id);
+        assert_eq!(escrow.get_escrow(&id).state, EscrowState::Disputed);
+    }
+
+    #[test]
+    fn test_resolve_dispute_split() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (escrow, client, freelancer, token, token_client, milestone_contract, _) = setup(&env);
+
+        let id = escrow.create_escrow(&client, &freelancer, &token, &1_000_000, &1, &0, &milestone_contract);
+        escrow.fund_escrow(&id);
+        escrow.dispute_escrow(&client, &id);
+
+        escrow.resolve_dispute(&id, &600_000, &400_000);
+        assert_eq!(escrow.get_escrow(&id).state, EscrowState::Completed);
+        assert_eq!(token_client.balance(&client), 1_000_000_000 - 1_000_000 + 600_000);
+        assert_eq!(token_client.balance(&freelancer), 400_000);
     }
 }

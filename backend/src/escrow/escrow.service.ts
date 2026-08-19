@@ -142,8 +142,8 @@ export class EscrowService {
       BigInt(escrow.releasedAmount || '0') + BigInt(milestone.amount || '0')
     ).toString();
 
-    let newState = escrow.state;
-    let newProjectStatus = ProjectStatus.IN_PROGRESS;
+    let newState: EscrowState = escrow.state;
+    let newProjectStatus: ProjectStatus = ProjectStatus.IN_PROGRESS;
 
     if (newCompleted >= escrow.milestoneCount) {
       newState = EscrowState.COMPLETED;

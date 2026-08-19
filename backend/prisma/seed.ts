@@ -98,7 +98,7 @@ async function main() {
     },
   });
 
-  await prisma.notification.createMany({
+await prisma.notification.createMany({
     data: [
       {
         userId: freelancer.id,
@@ -144,15 +144,20 @@ async function main() {
     skipDuplicates: true,
   });
 
-  await prisma.integration.create({
-    data: {
-      userId: client.id,
-      plugin: 'github',
-      status: 'connected',
-      scopes: ['repo', 'webhook'],
-      metadata: { githubUsername: 'alice-dev' },
-    },
+  const existingIntegration = await prisma.integration.findFirst({
+    where: { userId: client.id, plugin: 'github' },
   });
+  if (!existingIntegration) {
+    await prisma.integration.create({
+      data: {
+        userId: client.id,
+        plugin: 'github',
+        status: 'connected',
+        scopes: ['repo', 'webhook'],
+        metadata: { githubUsername: 'alice-dev' },
+      },
+    });
+  }
 
   console.log('Seed data created successfully');
   console.log(`Client: ${client.stellarAddress}`);

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { ConnectIntegrationDto } from './dto/connect-integration.dto';
 import { UpdateIntegrationDto } from './dto/update-integration.dto';
 
@@ -97,7 +98,7 @@ export class IntegrationsService {
       where: { id },
       data: {
         status: dto.status,
-        metadata: dto.metadata || undefined,
+        metadata: (dto.metadata as unknown as Prisma.InputJsonValue) ?? undefined,
       },
     });
   }

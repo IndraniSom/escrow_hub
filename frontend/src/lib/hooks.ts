@@ -23,7 +23,6 @@ export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [challenge, setChallenge] = useState<string | null>(null);
 
   const fetchMe = useCallback(async () => {
     try {
@@ -45,15 +44,30 @@ export function useAuth(): UseAuthReturn {
   }, [api]);
 
   useEffect(() => {
-    fetchMe();
-  }, [fetchMe]);
+    const cancelled = false;
+    void (async () => {
+      try {
+        const token = api.getToken();
+        if (!token) {
+          setUser(null);
+          return;
+        }
+        const me = await api.auth.me();
+        if (!cancelled) setUser(me);
+      } catch {
+        if (!cancelled) setUser(null);
+        api.setToken(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+  }, [api]);
 
   const login = useCallback(async (publicKey: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.auth.challenge(publicKey);
-      setChallenge(res.challenge);
+      await api.auth.challenge(publicKey);
     } catch (e) {
       const err = e as ApiError;
       setError(err.message || "Failed to get challenge");
@@ -70,9 +84,8 @@ export function useAuth(): UseAuthReturn {
       setError(null);
       try {
         const res = await api.auth.verify(publicKey, signature, ch);
-        api.setToken(res.token);
+        api.setToken(res.accessToken);
         setUser(res.user);
-        setChallenge(null);
       } catch (e) {
         const err = e as ApiError;
         setError(err.message || "Verification failed");
@@ -87,7 +100,6 @@ export function useAuth(): UseAuthReturn {
   const logout = useCallback(() => {
     api.setToken(null);
     setUser(null);
-    setChallenge(null);
     setError(null);
   }, [api]);
 

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { Mail, Webhook, Plug, Unplug, Settings, Loader2 } from "lucide-react";
 import { SiNotion } from "react-icons/si";
 import { FaSlack } from "react-icons/fa";
 import { getApiClient } from "@/lib/api";
+import { useAsync } from "@/lib/use-async";
+import { AsyncState } from "@/components/ui/async-state";
 
 type IntegrationStatus = "connected" | "disconnected" | "connecting" | "error";
 
@@ -44,24 +46,19 @@ export default function IntegrationsPage() {
   const api = getApiClient();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await api.integrations.list();
-        const connectedPlugins = new Set((res || []).map((i: { plugin: string }) => i.plugin));
-        setIntegrations(
-          INTEGRATIONS_CONFIG.map((config) => ({
-            ...config,
-            status: connectedPlugins.has(config.id) ? "connected" : "disconnected",
-            detail: connectedPlugins.has(config.id) ? `Connected to ${config.name}` : null,
-          }))
-        );
-      } catch {
-        setIntegrations(INTEGRATIONS_CONFIG.map((c) => ({ ...c, status: "disconnected" as const, detail: null })));
-      }
-    }
-    load();
+  const load = useCallback(async () => {
+    const res = await api.integrations.list();
+    const connectedPlugins = new Set((res || []).map((i: { plugin: string }) => i.plugin));
+    const items: Integration[] = INTEGRATIONS_CONFIG.map((config) => ({
+      ...config,
+      status: connectedPlugins.has(config.id) ? "connected" : "disconnected",
+      detail: connectedPlugins.has(config.id) ? `Connected to ${config.name}` : null,
+    }));
+    setIntegrations(items);
+    return items;
   }, [api]);
+
+  const { status, error, retry } = useAsync(load, [api]);
 
   async function handleConnect(id: string) {
     setIntegrations((prev) => prev.map((i) => (i.id === id ? { ...i, status: "connecting" } : i)));
@@ -104,6 +101,13 @@ export default function IntegrationsPage() {
         </p>
       </div>
 
+      <AsyncState
+        status={status}
+        onRetry={retry}
+        errorMessage={error ?? undefined}
+        emptyTitle="No integrations available"
+        emptyDescription="Configure integrations in the platform settings."
+      >
       {/* Integration Cards */}
       <div className="space-y-4">
         {integrations.map((integration) => {
@@ -186,6 +190,7 @@ export default function IntegrationsPage() {
           );
         })}
       </div>
+      </AsyncState>
 
       {/* Webhook section */}
       <div className="border-struct bg-[#09090b] p-6 space-y-4 hover:border-orange-600/30 transition-all duration-300 ease-in-out group">

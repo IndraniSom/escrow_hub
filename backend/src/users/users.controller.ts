@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -48,6 +49,14 @@ export class UsersController {
     return this.usersService.findByStellarAddress(user.stellarAddress);
   }
 
+  @Get('by-address/:address')
+  @UseGuards(StellarAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user by Stellar address' })
+  async findByAddress(@Param('address') address: string) {
+    return this.usersService.findByStellarAddress(address);
+  }
+
   @Get(':id')
   @UseGuards(StellarAuthGuard)
   @ApiBearerAuth()
@@ -67,7 +76,7 @@ export class UsersController {
   ) {
     const currentUser = await this.usersService.findByStellarAddress(user.stellarAddress);
     if (currentUser.id !== id && currentUser.role !== 'ADMIN') {
-      throw new (require('@nestjs/common').ForbiddenException)('You can only update your own profile');
+      throw new ForbiddenException('You can only update your own profile');
     }
     return this.usersService.update(id, dto);
   }

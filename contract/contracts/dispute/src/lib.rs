@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Symbol, Vec, vec, symbol_short};
 
 #[contracttype]
@@ -93,16 +93,20 @@ impl DisputeContract {
         id
     }
 
-    pub fn add_evidence(env: Env, dispute_id: u64, evidence_uri: Symbol) {
-        env.invoker().require_auth();
-        let _dispute: Dispute = env.storage().persistent()
+    pub fn add_evidence(env: Env, caller: Address, dispute_id: u64, evidence_uri: Symbol) {
+        caller.require_auth();
+        let dispute: Dispute = env.storage().persistent()
             .get(&DataKey::Dispute(dispute_id))
             .expect("dispute not found");
+
+        if dispute.raised_by != caller {
+            panic!("only the dispute raiser can add evidence");
+        }
 
         let mut evidence: Vec<Symbol> = env.storage().persistent()
             .get(&DataKey::Evidence(dispute_id))
             .unwrap_or(vec![&env]);
-        evidence.push_back(evidence_uri);
+        evidence.push_back(evidence_uri.clone());
         env.storage().persistent().set(&DataKey::Evidence(dispute_id), &evidence);
 
         env.events().publish(
@@ -191,5 +195,75 @@ impl DisputeContract {
         env.storage().persistent()
             .get(&DataKey::Dispute(dispute_id))
             .expect("dispute not found")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::Env;
+
+    fn setup(env: &Env) -> (DisputeContractClient, Address, Address, Address) {
+        let admin = Address::generate(env);
+        let contract_id = env.register(DisputeContract, ());
+        let client = DisputeContractClient::new(env, &contract_id);
+        client.initialize(&admin);
+        (client, admin, Address::generate(env), Address::generate(env))
+    }
+
+    #[test]
+    fn test_raise_and_evidence() {
+        let env = Env::default();
+        env.mock_all_auths();
+        env.ledger().set_timestamp(5_000);
+        let (disputes, _, client, freelancer) = setup(&env);
+
+        let id = disputes.raise_dispute(&1, &client, &client, &freelancer, &symbol_short!("Late"), &symbol_short!("overdue"));
+        assert_eq!(id, 1);
+        assert_eq!(disputes.get_dispute(&id).state, DisputeState::Open);
+
+        let outsider = Address::generate(&env);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| disputes.add_evidence(&outsider, &id, &symbol_short!("doc_1"))));
+        assert!(result.is_err(), "only the raiser may add evidence");
+
+        disputes.add_evidence(&client, &id, &symbol_short!("doc_1"));
+        disputes.add_evidence(&client, &id, &symbol_short!("doc_2"));
+    }
+
+    #[test]
+    fn test_raise_rejected_for_outsider() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (disputes, _, client, freelancer) = setup(&env);
+        let outsider = Address::generate(&env);
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            disputes.raise_dispute(&1, &outsider, &client, &freelancer, &symbol_short!("x"), &symbol_short!("y"))
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_review_resolve_and_dismiss() {
+        let env = Env::default();
+        env.mock_all_auths();
+        env.ledger().set_timestamp(5_000);
+        let (disputes, _, client, freelancer) = setup(&env);
+
+        let id = disputes.raise_dispute(&2, &freelancer, &client, &freelancer, &symbol_short!("Unpaid"), &symbol_short!("delayed"));
+        disputes.start_review(&id);
+        assert_eq!(disputes.get_dispute(&id).state, DisputeState::UnderReview);
+
+        disputes.resolve_dispute(&id, &Verdict::InFavorOfFreelancer, &0, &1_000_000, &symbol_short!("released"));
+        let d = disputes.get_dispute(&id);
+        assert_eq!(d.state, DisputeState::Resolved);
+        assert_eq!(d.resolution, symbol_short!("released"));
+        assert_eq!(d.resolved_at, 5_000);
+
+        let id2 = disputes.raise_dispute(&3, &client, &client, &freelancer, &symbol_short!("Bad"), &symbol_short!("low_qual"));
+        disputes.dismiss_dispute(&id2, &symbol_short!("no_evid"));
+        assert_eq!(disputes.get_dispute(&id2).state, DisputeState::Dismissed);
+        assert_eq!(disputes.get_dispute(&id2).resolution, symbol_short!("no_evid"));
     }
 }

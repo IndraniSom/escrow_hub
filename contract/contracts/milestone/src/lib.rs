@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Symbol, Vec, vec, symbol_short};
 
 #[contracttype]
@@ -86,8 +86,8 @@ impl MilestoneContract {
         id
     }
 
-    pub fn start_milestone(env: Env, milestone_id: u64) {
-        env.invoker().require_auth();
+    pub fn start_milestone(env: Env, caller: Address, milestone_id: u64) {
+        caller.require_auth();
         let mut milestone: Milestone = env.storage().persistent()
             .get(&DataKey::Milestone(milestone_id))
             .expect("milestone not found");
@@ -105,8 +105,8 @@ impl MilestoneContract {
         );
     }
 
-    pub fn submit_milestone(env: Env, milestone_id: u64, submission_uri: Symbol) {
-        env.invoker().require_auth();
+    pub fn submit_milestone(env: Env, caller: Address, milestone_id: u64, submission_uri: Symbol) {
+        caller.require_auth();
         let mut milestone: Milestone = env.storage().persistent()
             .get(&DataKey::Milestone(milestone_id))
             .expect("milestone not found");
@@ -126,8 +126,8 @@ impl MilestoneContract {
         );
     }
 
-    pub fn approve_milestone(env: Env, milestone_id: u64) {
-        env.invoker().require_auth();
+    pub fn approve_milestone(env: Env, caller: Address, milestone_id: u64) {
+        caller.require_auth();
         let mut milestone: Milestone = env.storage().persistent()
             .get(&DataKey::Milestone(milestone_id))
             .expect("milestone not found");
@@ -145,8 +145,8 @@ impl MilestoneContract {
         );
     }
 
-    pub fn reject_milestone(env: Env, milestone_id: u64) {
-        env.invoker().require_auth();
+    pub fn reject_milestone(env: Env, caller: Address, milestone_id: u64) {
+        caller.require_auth();
         let mut milestone: Milestone = env.storage().persistent()
             .get(&DataKey::Milestone(milestone_id))
             .expect("milestone not found");
@@ -181,5 +181,76 @@ impl MilestoneContract {
             .get(&DataKey::Milestone(milestone_id))
             .expect("milestone not found");
         milestone.state as u32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::Env;
+
+    fn setup(env: &Env) -> (MilestoneContractClient, Address) {
+        let admin = Address::generate(env);
+        let contract_id = env.register(MilestoneContract, ());
+        let client = MilestoneContractClient::new(env, &contract_id);
+        client.initialize(&admin);
+        (client, Address::generate(env))
+    }
+
+    #[test]
+    fn test_full_approval_flow() {
+        let env = Env::default();
+        env.mock_all_auths();
+        env.ledger().set_timestamp(1_000);
+        let (milestones, freelancer) = setup(&env);
+
+        let id = milestones.create_milestone(&1, &symbol_short!("Design"), &symbol_short!("UI"), &1_000_000, &2_000);
+        assert_eq!(id, 1);
+        assert_eq!(milestones.get_milestone(&id).state, MilestoneState::Pending);
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| milestones.submit_milestone(&freelancer, &id, &symbol_short!("x"))));
+        assert!(result.is_err(), "cannot submit a pending milestone");
+
+        milestones.start_milestone(&freelancer, &id);
+        assert_eq!(milestones.get_milestone(&id).state, MilestoneState::InProgress);
+
+        milestones.submit_milestone(&freelancer, &id, &symbol_short!("pr_42"));
+        assert_eq!(milestones.get_milestone(&id).state, MilestoneState::Completed);
+        assert_eq!(milestones.get_milestone(&id).submission_uri, symbol_short!("pr_42"));
+        assert_eq!(milestones.get_milestone(&id).completed_at, 1_000);
+
+        milestones.approve_milestone(&freelancer, &id);
+        assert_eq!(milestones.get_milestone(&id).state, MilestoneState::Approved);
+        assert_eq!(milestones.get_milestone_state(&id), 3);
+    }
+
+    #[test]
+    fn test_reject_flow() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (milestones, freelancer) = setup(&env);
+
+        let id = milestones.create_milestone(&1, &symbol_short!("Backend"), &symbol_short!("API"), &2_000_000, &0);
+        milestones.start_milestone(&freelancer, &id);
+        milestones.submit_milestone(&freelancer, &id, &symbol_short!("api"));
+        milestones.reject_milestone(&freelancer, &id);
+        assert_eq!(milestones.get_milestone(&id).state, MilestoneState::Rejected);
+    }
+
+    #[test]
+    fn test_project_milestone_listing() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (milestones, _) = setup(&env);
+
+        milestones.create_milestone(&7, &symbol_short!("A"), &symbol_short!("a"), &100, &0);
+        milestones.create_milestone(&7, &symbol_short!("B"), &symbol_short!("b"), &200, &0);
+        milestones.create_milestone(&8, &symbol_short!("C"), &symbol_short!("c"), &300, &0);
+
+        let project_7 = milestones.get_project_milestones(&7);
+        assert_eq!(project_7.len(), 2);
+        assert_eq!(project_7.get(0).unwrap(), 1);
+        assert_eq!(project_7.get(1).unwrap(), 2);
     }
 }

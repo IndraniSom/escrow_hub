@@ -1,6 +1,34 @@
-import Link from "next/link";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getApiClient } from "@/lib/api";
+import { Role } from "@/lib/types";
 
 export default function OnboardingPage() {
+  const router = useRouter();
+  const api = getApiClient();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.auth.me().then((me) => setUserId(me.id)).catch(() => {});
+  }, [api]);
+
+  async function chooseRole(role: Role.CLIENT | Role.FREELANCER) {
+    if (!userId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.users.update(userId, { role, isOnboarded: true });
+      router.push("/dashboard");
+    } catch (e) {
+      setSaving(false);
+      setError(e instanceof Error ? e.message : "Failed to save role");
+    }
+  }
+
   return (
     <div className="flex flex-col flex-1 w-full max-w-6xl mx-auto py-16 px-8">
       <div className="mb-16">
@@ -11,10 +39,11 @@ export default function OnboardingPage() {
         <p className="text-[#a1a1aa] max-w-2xl text-sm border-l-2 border-orange-600 pl-4">
           How do you want to use Freelance Escrow Hub? Tell us if you are looking to hire talent or if you are a freelancer looking for work.
         </p>
+        {error && <p className="text-sm text-red-400 mt-4">{error}</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-struct">
-        
+
         {/* Client Path */}
         <div className="p-8 md:p-12 border-struct-b md:border-struct-b-0 md:border-struct-r hover:bg-[#111113] transition-colors group">
           <div className="text-orange-600 font-bold text-lg mb-8 block">ROLE // CLIENT</div>
@@ -27,9 +56,9 @@ export default function OnboardingPage() {
             <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-orange-600 rounded-none"></span> Deposit funds to Escrow</li>
             <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-orange-600 rounded-none"></span> Review & Approve Work</li>
           </ul>
-          <Link href="/dashboard" className="btn-outline block text-center group-hover:bg-white group-hover:text-black group-hover:border-white">
-            Continue as Client
-          </Link>
+          <button onClick={() => chooseRole(Role.CLIENT)} disabled={saving} className="btn-outline block w-full text-center group-hover:bg-white group-hover:text-black group-hover:border-white disabled:opacity-50">
+            {saving ? "Saving..." : "Continue as Client"}
+          </button>
         </div>
 
         {/* Freelancer Path */}
@@ -44,9 +73,9 @@ export default function OnboardingPage() {
             <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-orange-600 rounded-none"></span> Connect GitHub Account</li>
             <li className="flex items-center gap-3"><span className="w-1.5 h-1.5 bg-orange-600 rounded-none"></span> Receive Instant Payouts</li>
           </ul>
-          <Link href="/dashboard" className="btn-primary block text-center">
-            Continue as Freelancer
-          </Link>
+          <button onClick={() => chooseRole(Role.FREELANCER)} disabled={saving} className="btn-primary block w-full text-center disabled:opacity-50">
+            {saving ? "Saving..." : "Continue as Freelancer"}
+          </button>
         </div>
 
       </div>

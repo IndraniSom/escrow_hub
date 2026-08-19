@@ -14,6 +14,17 @@ import type {
   ApiError,
 } from "./types";
 
+import { signMessage as freighterSignMessage } from "./freighter";
+
+type FreighterSignResult = string | { signedMessage: string | null; signerAddress: string; error?: { message: string } };
+
+export function normalizeSignedMessage(result: FreighterSignResult): string {
+  if (typeof result === "string") return result;
+  if (result?.error) throw new Error(result.error.message);
+  if (!result.signedMessage) throw new Error("Freighter returned no signature");
+  return result.signedMessage;
+}
+
 interface PaginationParams {
   page?: number;
   limit?: number;
@@ -40,6 +51,20 @@ export class ApiClient {
     }
   }
 
+  private async stellarHeaders(): Promise<Record<string, string>> {
+    if (typeof window === "undefined") return {};
+    const address = localStorage.getItem("stellar_address");
+    if (!address) throw new Error("No Stellar address connected");
+    const { challenge } = await this.auth.challenge(address);
+    const signatureStr = await freighterSignMessage(challenge, address);
+    const signature = normalizeSignedMessage(signatureStr);
+    return {
+      Authorization: `Stellar ${signature}`,
+      "x-stellar-public-key": address,
+      "x-stellar-challenge": challenge,
+    };
+  }
+
   private async request<T>(
     method: string,
     path: string,
@@ -57,10 +82,7 @@ export class ApiClient {
     }
 
     if (stellarAuth && typeof window !== "undefined") {
-      const stellarToken = localStorage.getItem("stellar_token");
-      if (stellarToken) {
-        headers["X-Stellar-Auth"] = stellarToken;
-      }
+      Object.assign(headers, await this.stellarHeaders());
     }
 
     const res = await fetch(url, {
@@ -95,11 +117,12 @@ export class ApiClient {
     challenge: (publicKey?: string) =>
       this.request<AuthChallengeResponse>("POST", "/auth/challenge", { publicKey }),
 
-    verify: (publicKey: string, signature: string, challenge: string) =>
+    verify: (publicKey: string, signature: string, challenge: string, role?: string) =>
       this.request<AuthVerifyResponse>("POST", "/auth/verify", {
         publicKey,
         signature,
         challenge,
+        role,
       }),
 
     me: () => this.request<User>("GET", "/auth/me"),
@@ -114,6 +137,9 @@ export class ApiClient {
     me: () => this.request<User>("GET", "/users/me"),
 
     get: (id: string) => this.request<User>("GET", `/users/${id}`),
+
+    byAddress: (address: string) =>
+      this.request<User>("GET", `/users/by-address/${encodeURIComponent(address)}`),
 
     update: (id: string, data: Partial<User>) =>
       this.request<User>("PATCH", `/users/${id}`, data),
@@ -238,10 +264,10 @@ export class ApiClient {
 
   wallet = {
     balance: () =>
-      this.request<{ balance: number; currency: string }>("GET", "/wallet/balance", undefined, true),
+      this.request<{ userId: string; balance: string; tokenBalances: Record<string, string>; currency: string }>("GET", "/wallet/balance", undefined, true),
 
     stellarBalance: () =>
-      this.request<{ balance: string; asset: string }>("GET", "/wallet/stellar-balance", undefined, true),
+      this.request<{ stellarAddress: string; balances: { assetType: string; assetCode: string; balance: string }[] }>("GET", "/wallet/stellar-balance", undefined, true),
 
     transactions: (pagination?: PaginationParams) => {
       const params = pagination ? `?${new URLSearchParams(pagination as Record<string, string>).toString()}` : "";

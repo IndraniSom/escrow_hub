@@ -176,7 +176,6 @@ const buildPalette = (colors: string[]) => {
   const padded: number[][] = [];
   for (let i = 0; i < MAX_COLORS; i++) {
     const hex = filled[i] ?? filled[filled.length - 1];
-    // @ts-ignore - ogl Color accepts string
     const c = new Color(hex);
     padded.push([c.r, c.g, c.b]);
   }
@@ -206,6 +205,8 @@ export interface StrandsProps {
   style?: React.CSSProperties;
 }
 
+type StrandsConfig = Required<Omit<StrandsProps, "className" | "style">>;
+
 export default function Strands({
   colors = ['#FF4242', '#7C3AED', '#06B6D4', '#EAB308'],
   count = 3,
@@ -228,8 +229,7 @@ export default function Strands({
   className = '',
   style
 }: StrandsProps) {
-  const propsRef = useRef<any>({});
-  propsRef.current = {
+  const propsRef = useRef<StrandsConfig>({
     colors,
     count,
     speed,
@@ -248,7 +248,30 @@ export default function Strands({
     refraction,
     dispersion,
     glassSize
-  };
+  });
+
+  useEffect(() => {
+    propsRef.current = {
+      colors,
+      count,
+      speed,
+      amplitude,
+      waviness,
+      thickness,
+      glow,
+      taper,
+      spread,
+      hueShift,
+      intensity,
+      saturation,
+      opacity,
+      scale,
+      glass,
+      refraction,
+      dispersion,
+      glassSize
+    };
+  });
 
   const ctnDom = useRef<HTMLDivElement>(null);
 
