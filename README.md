@@ -68,10 +68,10 @@ The Freelance Escrow Hub includes **four interconnected Soroban contracts** writ
 
 | Contract | Network | Address | Explorer |
 |---|---|---|---|
-| **Escrow** | Stellar Testnet | `[YOUR_ESCROW_CONTRACT_ID]` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/[YOUR_ESCROW_CONTRACT_ID]) |
-| **Milestone** | Stellar Testnet | `[YOUR_MILESTONE_CONTRACT_ID]` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/[YOUR_MILESTONE_CONTRACT_ID]) |
-| **Dispute** | Stellar Testnet | `[YOUR_DISPUTE_CONTRACT_ID]` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/[YOUR_DISPUTE_CONTRACT_ID]) |
-| **Reputation** | Stellar Testnet | `[YOUR_REPUTATION_CONTRACT_ID]` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/[YOUR_REPUTATION_CONTRACT_ID]) |
+| **Escrow** | Stellar Testnet | `CDSMU7GIFOQBYQIX5MFXMWYYJ6ITMFV5MSLNLP5MDX4ZII35YRMVRQ3V` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CDSMU7GIFOQBYQIX5MFXMWYYJ6ITMFV5MSLNLP5MDX4ZII35YRMVRQ3V) |
+| **Milestone** | Stellar Testnet | `CDOA6TQYS7LW3FDIWAGYZGUAN6TFSTYO6V5DEUPQFRQAIL5PSCPFLYAS` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CDOA6TQYS7LW3FDIWAGYZGUAN6TFSTYO6V5DEUPQFRQAIL5PSCPFLYAS) |
+| **Dispute** | Stellar Testnet | `CADUAHEKABD3A4DYZCXOJ6XAAC2JLTDMNXOUJMI2NGCMI4REAWEFGAIG` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CADUAHEKABD3A4DYZCXOJ6XAAC2JLTDMNXOUJMI2NGCMI4REAWEFGAIG) |
+| **Reputation** | Stellar Testnet | `CCF7QXREU4U6OWZCQFBK4GLAUSXBNWB5QE4UY7Q23JFE6XQCMYYEXIVJ` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CCF7QXREU4U6OWZCQFBK4GLAUSXBNWB5QE4UY7Q23JFE6XQCMYYEXIVJ) |
 
 > ⚠️ **Important:** These addresses are required for the backend to verify transactions on-chain. Set them in `backend/.env` as `SOROBAN_ESCROW_CONTRACT_ID`, `SOROBAN_MILESTONE_CONTRACT_ID`, etc. (see [Environment Variables](#environment-variables)).
 
@@ -214,10 +214,10 @@ const response = await server.submitTransaction(tx);
 
 ```env
 # backend/.env
-SOROBAN_ESCROW_CONTRACT_ID=YOUR_ESCROW_CONTRACT_ID
-SOROBAN_MILESTONE_CONTRACT_ID=YOUR_MILESTONE_CONTRACT_ID
-SOROBAN_DISPUTE_CONTRACT_ID=YOUR_DISPUTE_CONTRACT_ID
-SOROBAN_REPUTATION_CONTRACT_ID=YOUR_REPUTATION_CONTRACT_ID
+SOROBAN_ESCROW_CONTRACT_ID=CDSMU7GIFOQBYQIX5MFXMWYYJ6ITMFV5MSLNLP5MDX4ZII35YRMVRQ3V
+SOROBAN_MILESTONE_CONTRACT_ID=CDOA6TQYS7LW3FDIWAGYZGUAN6TFSTYO6V5DEUPQFRQAIL5PSCPFLYAS
+SOROBAN_DISPUTE_CONTRACT_ID=CADUAHEKABD3A4DYZCXOJ6XAAC2JLTDMNXOUJMI2NGCMI4REAWEFGAIG
+SOROBAN_REPUTATION_CONTRACT_ID=CCF7QXREU4U6OWZCQFBK4GLAUSXBNWB5QE4UY7Q23JFE6XQCMYYEXIVJ
 STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 STELLAR_NETWORK=testnet
 PLATFORM_WALLET_ADDRESS=G...
